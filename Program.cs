@@ -25,6 +25,9 @@ string dstUsername = configuration["Destination:Username"] ?? string.Empty;
 string dstPassword = configuration["Destination:Password"] ?? string.Empty;
 string dstCommand = configuration["Destination:Command"] ?? string.Empty;
 
+string outputFilePath = configuration["OutputFilePath"] ?? string.Empty;
+Directory.CreateDirectory(Path.GetDirectoryName(outputFilePath)!);
+
 try
 {
     using (var sshClient = new SshClient(srcHost, srcUsername, srcPassword))
@@ -35,7 +38,11 @@ try
         if (sshClient.IsConnected)
         {
             logger.LogInformation("Connected successfully!");
-            logger.LogInformation(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+
+            string dateTimeNow = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            logger.LogInformation(dateTimeNow);
+            File.AppendAllText(outputFilePath, dateTimeNow + Environment.NewLine);
+
             logger.LogInformation("Executing command: {0}", srcCommand);
 
             var cmd = sshClient.CreateCommand(srcCommand);
@@ -43,6 +50,7 @@ try
 
             logger.LogInformation("Command executed successfully!");
             logger.LogInformation(result);
+            File.AppendAllText(outputFilePath, result + Environment.NewLine);
         }
         else
         {
