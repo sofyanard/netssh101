@@ -1,39 +1,61 @@
-﻿using Renci.SshNet;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Renci.SshNet;
 
-string host = "10.20.59.235";
-string username = "admins";
-string password = "atrbpn123";
+using var loggerFactory = LoggerFactory.Create(builder =>
+{
+    builder
+        .AddConsole()
+        .SetMinimumLevel(LogLevel.Information);
+});
+var logger = loggerFactory.CreateLogger<Program>();
+
+var configuration = new ConfigurationBuilder()
+        .SetBasePath(Directory.GetCurrentDirectory())
+        .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+        .Build();
+
+string srcHost = configuration["Source:Host"] ?? string.Empty;
+string srcUsername = configuration["Source:Username"] ?? string.Empty;
+string srcPassword = configuration["Source:Password"] ?? string.Empty;
+string srcCommand = configuration["Source:Command"] ?? string.Empty;
+
+string dstHost = configuration["Destination:Host"] ?? string.Empty;
+string dstUsername = configuration["Destination:Username"] ?? string.Empty;
+string dstPassword = configuration["Destination:Password"] ?? string.Empty;
+string dstCommand = configuration["Destination:Command"] ?? string.Empty;
 
 try
 {
-    using (var sshClient = new SshClient(host, username, password))
+    using (var sshClient = new SshClient(srcHost, srcUsername, srcPassword))
     {
-        Console.WriteLine("Connecting to SSH server...");
+        logger.LogInformation("Connecting to SSH server...");
         sshClient.Connect();
 
         if (sshClient.IsConnected)
         {
-            Console.WriteLine("Connected successfully!");
+            logger.LogInformation("Connected successfully!");
+            logger.LogInformation(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            logger.LogInformation("Executing command: {0}", srcCommand);
 
-            string command = "ls -l";
-            var cmd = sshClient.CreateCommand(command);
+            var cmd = sshClient.CreateCommand(srcCommand);
             var result = cmd.Execute();
 
-            Console.WriteLine("Command executed successfully:");
-            Console.WriteLine(result);
+            logger.LogInformation("Command executed successfully!");
+            logger.LogInformation(result);
         }
         else
         {
-            Console.WriteLine("Failed to connect to SSH server.");
+            logger.LogError("Failed to connect to SSH server!");
         }
 
         sshClient.Disconnect();
-        Console.WriteLine("Disconnected");
+        logger.LogInformation("Disconnected from SSH server!");
     }
 }
-catch (Exception ex)
+catch (Exception e)
 {
-    Console.WriteLine("Error: " + ex.Message);
+    logger.LogError(e, e.Message);
 }
 
 Console.WriteLine("Hello, World!");
