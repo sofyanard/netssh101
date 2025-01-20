@@ -12,13 +12,16 @@ var logger = loggerFactory.CreateLogger<Program>();
 
 var configuration = new ConfigurationBuilder()
         .SetBasePath(Directory.GetCurrentDirectory())
-        .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+        .AddEnvironmentVariables()
         .Build();
 
 string srcHost = configuration["Source:Host"] ?? string.Empty;
 string srcUsername = configuration["Source:Username"] ?? string.Empty;
 string srcPassword = configuration["Source:Password"] ?? string.Empty;
 string srcCommand = configuration["Source:Command"] ?? string.Empty;
+
+logger.LogInformation("{0} - {1} - {2}", srcHost, srcUsername, srcPassword);
 
 string dstHost = configuration["Destination:Host"] ?? string.Empty;
 string dstUsername = configuration["Destination:Username"] ?? string.Empty;
@@ -39,18 +42,8 @@ try
         {
             logger.LogInformation("Connected successfully!");
 
-            string dateTimeNow = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-            logger.LogInformation(dateTimeNow);
-            File.AppendAllText(outputFilePath, dateTimeNow + Environment.NewLine);
-
-            logger.LogInformation("Executing command: {0}", srcCommand);
-
-            var cmd = sshClient.CreateCommand(srcCommand);
-            var result = cmd.Execute();
-
-            logger.LogInformation("Command executed successfully!");
-            logger.LogInformation(result);
-            File.AppendAllText(outputFilePath, result + Environment.NewLine);
+            string result = RunSshCommand(sshClient, srcCommand, logger, outputFilePath);
+            logger.LogInformation("Result: {0}", result);
         }
         else
         {
@@ -67,3 +60,57 @@ catch (Exception e)
 }
 
 Console.WriteLine("Hello, World!");
+
+
+
+static string RunSshCommand(SshClient sshClient, string command, ILogger logger, string outputFilePath)
+{
+    try
+    {
+        string dateTimeNow = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        logger.LogInformation(dateTimeNow);
+        File.AppendAllText(outputFilePath, dateTimeNow + Environment.NewLine);
+        logger.LogInformation("Success writing DateTime to file");
+
+        logger.LogInformation("Executing command: {0}", command);
+
+        var cmd = sshClient.CreateCommand(command);
+        var result = cmd.Execute();
+
+        logger.LogInformation("Result: {0}", result);
+        File.AppendAllText(outputFilePath, result + Environment.NewLine);
+        logger.LogInformation("Success writing Result to file");
+
+        return result;
+    }
+    catch (Exception e)
+    {
+        logger.LogError(e, e.Message);
+        throw;
+    }
+}
+
+static async Task RunPeriodicTaskAsync(TimeSpan interval, CancellationToken cancellationToken)
+{
+    while (!cancellationToken.IsCancellationRequested)
+    {
+        try
+        {
+            // Perform your task
+            Console.WriteLine($"Task executed at {DateTime.Now}");
+
+            // Wait for the specified interval
+            await Task.Delay(interval, cancellationToken);
+        }
+        catch (TaskCanceledException)
+        {
+            // Task was cancelled, break the loop
+            break;
+        }
+        catch (Exception ex)
+        {
+            // Log unexpected errors and continue
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+}
