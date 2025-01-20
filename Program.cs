@@ -42,8 +42,18 @@ try
         {
             logger.LogInformation("Connected successfully!");
 
-            string result = RunSshCommand(sshClient, srcCommand, logger, outputFilePath);
-            logger.LogInformation("Result: {0}", result);
+            // Create a CancellationTokenSource to allow graceful shutdown
+            using var cts = new CancellationTokenSource();
+
+            // Start the repeating task
+            var task = RunPeriodicTaskAsync(TimeSpan.FromMinutes(1), cts.Token, sshClient, srcCommand, logger, outputFilePath);
+
+            Console.WriteLine("Press any key to stop...");
+            Console.ReadKey();
+
+            // Signal cancellation and wait for the task to stop
+            cts.Cancel();
+            await task;
         }
         else
         {
@@ -90,7 +100,7 @@ static string RunSshCommand(SshClient sshClient, string command, ILogger logger,
     }
 }
 
-static async Task RunPeriodicTaskAsync(TimeSpan interval, CancellationToken cancellationToken)
+static async Task RunPeriodicTaskAsync(TimeSpan interval, CancellationToken cancellationToken, SshClient sshClient, string command, ILogger logger, string outputFilePath)
 {
     while (!cancellationToken.IsCancellationRequested)
     {
@@ -98,6 +108,7 @@ static async Task RunPeriodicTaskAsync(TimeSpan interval, CancellationToken canc
         {
             // Perform your task
             Console.WriteLine($"Task executed at {DateTime.Now}");
+            string result = RunSshCommand(sshClient, command, logger, outputFilePath);
 
             // Wait for the specified interval
             await Task.Delay(interval, cancellationToken);
